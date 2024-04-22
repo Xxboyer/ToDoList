@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do List</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            margin: 0 auto;
+            width: 50%;
+        }
+        h1 {
+            text-align: center;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+        li:not(:last-child) {
+            margin-bottom: 10px;
+        }
+        label {
+            display: inline-block;
+            margin-right: 1px;
+            padding: 15px;
+        }
+        input[type="text"] {
+            padding: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+        button {
+            padding: 5px 15px;
+            border-radius: 5px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+        }
+        .completed {
+            text-decoration: line-through;
+        }
+    </style>
+</head>
+<body>
+    <h1>To-Do List</h1>
+    <form id="todo-form">
+        <input type="text" id="task-input" name="task" placeholder="Enter task" >
+        <button type="submit" id="rgb">Add</button>
+        <label for="selectColor">Select a color:</label>
+        <button onclick="changeColor()" id="selectColor">Change Color</button>
+    </form>
+    <div id="todo-list"></div>
+
+    <script>
+
+        /*!------------- CARICAMENTO DELLA PAGINA HTML AL CARICAMENTO DELLA PAGINA ------------------ */
+        window.addEventListener('load', async () => {
+            const todos = await fetchTodos()
+            renderTodos(todos)
+        })
+
+        /*!------------- VARIABILI ------------------ */
+        const ApiURL = 'http://localhost:3000/' // URL da dove prendere i dati
+        const todoForm = document.getElementById("todo-form")
+        var taskValue = "";
+
+         /*!------------- VIENE CREATO IL COMPONENTE DELLA LISTA E LA INVIA AL DB ------------------ */
+        const taskInput = document.getElementById("task-input"); // prende l'elemento con id: 'task-input' di input
+        const todoList = document.getElementById("todo-list");
+
+        /*!------------- FUNZIONE CON FETCH PER AGGIUNGERE I TODO ------------------ */
+        todoForm.addEventListener("submit", async (e) => { // il submit è il 'type' del button
+            e.preventDefault() // se non ci fosse questo aprirebbe altre pagine non connesse
+            taskValue = taskInput.value; // taskValue conterrà il valore di taskInput, cioè ciò che l'utente digita all'interno della barra
+            if(taskValue){
+                const todo = { taskValue }; // oggetto stringa che verrà inviato dal body
+                await sendToDo(todo); //x deve avere l'elemento creato
+                taskInput.value = ""; // Clear the input field
+                loadTodos();
+            }
+        })
+        
+        /*!------------- INVIO DATI TODOLIST ------------------ */
+        async function sendToDo(todo){
+            await fetch(ApiURL, {
+                method: "POST",
+                body: JSON.stringify(todo),
+                headers: { "Content-type" : "application/json" }
+            });
+        }
+
+        /*!------------- RICEZIONE DI UN SOLO ELEMENTO CREATO NELLA TODOLIST DAL SERVER ------------------ */
+        async function fetchTodos() {
+        const response = await fetch(ApiURL + "list"); // in ascolto della lista di elementi
+        const todos = await response.json(); // la risposta è solo un elemento, ma che viene inserito nell'array todos
+        return todos // ritorna l'elemento
+      }
+
+      /*!------------- CARICAMENTO DELL'AZIONE ------------------ */
+      async function loadTodos() {
+        const todos = await fetchTodos() // attendo la funzione fetchTodos per ricevere l'azione, è una funzione asincrona quindi mentre aspetta esegue la funzione sotto
+        renderTodos(todos) // pulisco il div, una sola volta quando viene attivato il codice
+      }
+
+      /*!------------- INVIO L'ELEMENTO HTML PER LA CREAZIONE E POI AVVIENE IL CARICAMENTO ------------------ */
+      async function renderTodos(todos){
+        todoList.innerHTML = "" // pulisco il div
+        todos.forEach((todo) => {   // scorre l'array che non viene passato ma la comunicazione avviene, immaginiamoci di avere l'array qui nel client
+            todoList.appendChild(createTodoElement(todo));
+            if(todo.Completo === true){
+                console.log("bella")
+                todoCompleteAndDelete(todo.id, todo.Completo)
+            }
+        });
+      }
+
+      /*!------------- CREAZIONE DELL'ELEMENTO TODO ------------------ */
+      function createTodoElement(todo){
+        const div = document.createElement("div");
+        div.classList.add("todo");
+        div.innerHTML = `
+                <div>
+                    <input type="checkbox" id="${todo.id}" onclick="todoCompleteAndDelete(${todo.id})">
+                    <label id="tacked">${todo.Titolo}</label>
+                    <button onclick="deleteFetch(${todo.id})">Delete</button>
+                </div>
+            `;
+        return div;
+      }
+
+      /*!------------- FUNZIONE PER CHECKBOX, LAVORO COMPLETATO ------------------ */
+      async function todoCompleteAndDelete(id, completed){
+        const check = document.getElementById(id)
+        const titleChecked = document.getElementById("tacked")
+        check.addEventListener("change", async () => {
+            if(check.checked){
+                const response = await fetch(ApiURL + `list/${id}`) // mando richiesta di voler quel todo con quell'id
+                const todo = await response.json() // ricevo la risposta
+                /*questa sintassi è detta "spread syntax" insieme a un'operazione di "shorthand property"
+                la parte di spread è ...todo, crea un oggetto che è una copia dell'originale todo, prende le caratteristiche di todo e 
+                le copia, la shorthand invece è "Completo: true, dove sovrascrive una proprietà dell'oggetto*/
+                const updatedTodo = { ...todo, Completo: true } 
+                await updateFetch(updatedTodo)
+                titleChecked.classList.add("completed")
+            }
+            else{
+                titleChecked.classList.remove("completed")
+            }
+        })
+        if(completed === true){
+            titleChecked.classList.add("completed")
+            check.checked = true
+        }else{
+            titleChecked.classList.remove("completed")
+        }
+      }
+
+      /*!------------- CHIAMATA FETCH PER AGGIORNARE I TODO ------------------ */
+      async function updateFetch(updatedTodo){
+        await fetch(ApiURL + `list/${updatedTodo.id}`, {
+            method: "PUT",
+            body: JSON.stringify(updatedTodo),
+            headers: { "Content-type" : "application/json" }
+        });
+      }
+
+      /*!------------- CHIAMATA FETCH PER ELIMINARE IL TODO ------------------ */
+      async function deleteFetch(id){
+        await fetch(ApiURL + `list/${id}`, {
+            method: "DELETE"
+        })
+        loadTodos()
+      }
+
+    /*!------------- FUNZIONE PER CAMBIARE I COLORI NEL BUTTON ------------------ */
+    async function changeColor(){
+        var rgb = document.getElementById("rgb")
+        var lastN = 0
+        const colori = await fetchColors()
+        const { red, yellow, acqua } = colori;
+        let n = getRandomUniqueNumber(); // Ottieni un nuovo numero unico
+        while (n === lastN) {
+            n = getRandomUniqueNumber(); // Se n è uguale all'ultimo valore, ottieni un nuovo numero
+        }
+        lastN = n; // aggiorno l'ultimo valore
+        if(n == 1){ rgb.style.backgroundColor =  red }
+        else if (n == 2){ rgb.style.backgroundColor =  yellow }
+        else { rgb.style.backgroundColor =  acqua }
+    }
+
+    /*!------------- CHIAMATA FETCH PER AVERE I COLORI ------------------ */
+    async function fetchColors(){
+        const response = await fetch(ApiURL + "colors")
+        const colori =  await response.json()
+        return colori
+    }
+
+    /*!------------- FUNZIONE PER AVERE I NUMERI RUNDOM ------------------ */
+    function getRandomUniqueNumber() {
+    // Genera un numero casuale tra 1 e 3
+    return Math.floor(Math.random() * (3 - 1 + 1)) + 1;
+    }
+    
+    </script>
+</body>
+</html>

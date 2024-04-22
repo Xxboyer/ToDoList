@@ -1,0 +1,22 @@
+# docker-compose.yml
+
+version: "3.9"
+services:
+  PrismaDB:
+    image: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: 49DOjzB73%:)
+    ports: 
+      - '3307:3306'
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  todolist:
+    build: .
+    depends_on:
+      - PrismaDB
+    ports:
+      - '3000:3000'
+        
+volumes:
+  mysql-data:
