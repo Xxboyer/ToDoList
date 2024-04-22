@@ -10,7 +10,7 @@ app.use(express.json())
 const prisma = new PrismaClient({
     datasources: {
         db: {
-            url: 'mysql://root:49DOjzB73%:)@172.30.0.2:3306/prismadb',
+            url: process.env.DB,
         },
     },
 })
